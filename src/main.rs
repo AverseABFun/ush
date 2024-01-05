@@ -1,5 +1,5 @@
 use std::env;
-use std::io::{stdin, stdout, stderr, Write};
+use std::io::{stdin, stdout, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 extern crate clap;
@@ -64,7 +64,6 @@ fn main() {
                         .args(args)
                         .stdin(stdin)
                         .stdout(stdout)
-                        .stderr(stderr)
                         .spawn();
 
                     match output {
