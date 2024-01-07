@@ -1,7 +1,7 @@
 use std::env;
 use std::io::{stdin, stdout, Write};
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, Stdio, ChildStdin};
 extern crate clap;
 use clap::Parser;
 
@@ -18,14 +18,15 @@ fn main() {
         print!("This is designed for use in changing hosted files, and originally created for use in making a collaboratively created ARG\n");
     }
     loop {
-        print!("> ");
+        print!("{}> ",env::current_dir().unwrap().into_os_string().into_string().unwrap()
+                                        .replace("\\","/").replace("C:/","/").replace("/ush-sandbox","/"));
         stdout().flush().unwrap();
 
         let mut input = String::new();
         stdin().read_line(&mut input).unwrap();
 
         let mut commands = input.trim().split(" | ").peekable();
-        let mut previous_command = None;
+        let mut previous_command: Option<Child> = None;
 
         while let Some(command) = commands.next() {
             
@@ -36,7 +37,15 @@ fn main() {
             match command {
                 "cd" => {
                     
-                    let new_dir = args.peekable().peek().map_or("/", |x| *x);
+                    let new_dir = &(if !args.clone().peekable().peek().map_or("/", |x| *x).starts_with("/") {
+                        "/".to_owned()+args.peekable().peek().map_or("/", |x| *x)
+                    } else {
+                        args.peekable().peek().map_or("/", |x| *x).to_string()
+                    });
+                    print!("{}", new_dir);
+                    if new_dir.replace("\\","/").split("/").nth(1).unwrap() != "ush-sandbox" {
+                        break;
+                    }
                     let root = Path::new(new_dir);
                     if let Err(e) = env::set_current_dir(&root) {
                         eprintln!("{}", e);
@@ -44,10 +53,14 @@ fn main() {
 
                     previous_command = None;
                 }
+                "edit" => {
+                    print!("This has not been made yet, soooooooo");
+                    previous_command = None;
+                }
                 "exit" => return,
                 command => {
-                    let stdin = previous_command.map_or(Stdio::inherit(), |output: Child| {
-                        Stdio::from(output.stdout.unwrap())
+                    let stdin: Stdio = (&previous_command.unwrap()).as_ref().stdin.map_or(Stdio::inherit(), |output: ChildStdin| {
+                        Stdio::from(output)
                     });
 
                     let stdout = if commands.peek().is_some() {
@@ -59,7 +72,10 @@ fn main() {
                         
                         Stdio::inherit()
                     };
-
+                    if command.clone().starts_with("bash") || command.clone().starts_with("zsh") || command.clone().starts_with("dash") || command.clone().starts_with("cmd") || command.clone().ends_with("bash") || command.clone().ends_with("zsh") || command.clone().ends_with("dash") || command.clone().ends_with("cmd") {
+                        print!("haha, you THOUGHT");
+                        break;
+                    }
                     let output = Command::new(command)
                         .args(args)
                         .stdin(stdin)
@@ -79,7 +95,7 @@ fn main() {
             }
         }
 
-        if let Some(mut final_command) = previous_command {
+        if let Some(ref mut final_command) = previous_command {
             
             final_command.wait().unwrap();
         }
