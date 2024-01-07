@@ -1,9 +1,21 @@
 use std::env;
 use std::io::{stdin, stdout, Write};
 use std::path::Path;
-use std::process::{Child, Command, Stdio, ChildStdin};
+use std::process::Child;
+use std::fs;
 extern crate clap;
 use clap::Parser;
+
+fn list_dir() {
+    let paths = fs::read_dir(env::current_dir().unwrap()).unwrap();
+
+    println!("Contents of \"{}\"", env::current_dir().unwrap().into_os_string().into_string().unwrap()
+    .replace("\\","/").replace("C:/","/").replace("/ush-sandbox",""));
+
+    for path in paths {
+        println!("{}", path.unwrap().path().to_str().unwrap().replace("\\","/").split("/").last().unwrap())
+    }
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -19,7 +31,7 @@ fn main() {
     }
     loop {
         print!("{}> ",env::current_dir().unwrap().into_os_string().into_string().unwrap()
-                                        .replace("\\","/").replace("C:/","/").replace("/ush-sandbox","/"));
+                                        .replace("\\","/").replace("C:/","/").replace("/ush-sandbox",""));
         stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -38,11 +50,10 @@ fn main() {
                 "cd" => {
                     
                     let new_dir = &(if !args.clone().peekable().peek().map_or("/", |x| *x).starts_with("/") {
-                        "/".to_owned()+args.peekable().peek().map_or("/", |x| *x)
+                        "/ush-sandbox/".to_owned()+args.peekable().peek().map_or("/", |x| *x)
                     } else {
-                        args.peekable().peek().map_or("/", |x| *x).to_string()
+                        "/ush-sandbox".to_owned()+args.peekable().peek().map_or("/", |x| *x)
                     });
-                    print!("{}", new_dir);
                     if new_dir.replace("\\","/").split("/").nth(1).unwrap() != "ush-sandbox" {
                         break;
                     }
@@ -58,40 +69,35 @@ fn main() {
                     previous_command = None;
                 }
                 "exit" => return,
-                command => {
-                    let stdin: Stdio = (&previous_command.unwrap()).as_ref().stdin.map_or(Stdio::inherit(), |output: ChildStdin| {
-                        Stdio::from(output)
-                    });
-
-                    let stdout = if commands.peek().is_some() {
-                        
-                        
-                        Stdio::piped()
+                "ls" => {
+                    list_dir();
+                    previous_command = None;
+                }
+                "dir" => {
+                    list_dir();
+                    previous_command = None;
+                }
+                "mkdir" => {
+                    let new_dir = &(if !args.clone().peekable().peek().map_or("/", |x| *x).starts_with("/") {
+                        "/ush-sandbox/".to_owned()+args.peekable().peek().map_or("/", |x| *x)
                     } else {
-                        
-                        
-                        Stdio::inherit()
-                    };
-                    if command.clone().starts_with("bash") || command.clone().starts_with("zsh") || command.clone().starts_with("dash") || command.clone().starts_with("cmd") || command.clone().ends_with("bash") || command.clone().ends_with("zsh") || command.clone().ends_with("dash") || command.clone().ends_with("cmd") {
-                        print!("haha, you THOUGHT");
+                        "/ush-sandbox".to_owned()+args.peekable().peek().map_or("/", |x| *x)
+                    });
+                    if new_dir.replace("\\","/").split("/").nth(1).unwrap() != "ush-sandbox" {
                         break;
                     }
-                    let output = Command::new(command)
-                        .args(args)
-                        .stdin(stdin)
-                        .stdout(stdout)
-                        .spawn();
+                    let root = Path::new(new_dir);
+                    if let Err(e) = fs::create_dir(&root) {
+                        eprintln!("{}", e);
+                    }
 
-                    match output {
-                        Ok(output) => {
-                            previous_command = Some(output);
-                        }
-                        Err(e) => {
-                            previous_command = None;
-                            eprintln!("{}", e);
-                        }
-                    };
+                    previous_command = None;
                 }
+                "la" => {
+                    list_dir();
+                    previous_command = None;
+                },
+                &_ => todo!()
             }
         }
 
